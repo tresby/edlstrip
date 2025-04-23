@@ -1,7 +1,7 @@
 import os, sys, subprocess, logging
 import argparse
 import tempfile
-from shutil import which
+import click
 
 ## 
 # Helper functions
@@ -21,8 +21,10 @@ def parse_args(input_args):
                         help='the video codec used to trancode (default: copy)')
     parser.add_argument('--acodec', dest='acodec', default='copy',
                         help='the audio codec used to trancode (default: copy)')
+    parser.add_argument('--scodec', dest='scodec', default='copy',
+                        help='the subtitle codec used to trancode (default: copy)')
     parser.add_argument('-o','--outfile', dest='out_file',
-                        help='the file to write out to (default: <video>_comskipped.mkv)')
+                        help='the file to write out to (default: <video>_comskipped.mpg)')
     parser.add_argument('--verbose', '-v', action='count', default=1,
                         help='confirms and disables copy vcodec usage prompt')
     args = parser.parse_args()
@@ -115,7 +117,7 @@ def invert_edl_list(timecode_list, end_timecode):
     return inverted
 
 
-def split_video(video_file, edl_list, split_dir, vcodec='libx264', acodec='copy', verbosity=0):
+def split_video(video_file, edl_list, split_dir, vcodec='libx264', acodec='copy', scodec='copy', verbosity=0):
     """
     uses ffmpeg commandline to split the file based on edl tuple (quick method by copying, so will split by i-frames)
     """
@@ -125,19 +127,19 @@ def split_video(video_file, edl_list, split_dir, vcodec='libx264', acodec='copy'
         start,stop = item
         split_file = os.path.join(split_dir, f"split{split_cnt}.ts")
         logging.info(f"Splitting using Start: {start}, Stop: {stop} to split{split_cnt}.ts")
-        cmd = f"ffmpeg -hide_banner -loglevel {str(verbosity)} -y -i '{video_file}' -acodec {acodec} -vcodec {vcodec} -ss {start} -to {stop} -reset_timestamps 1 '{split_file}'"
+        cmd = f"ffmpeg -hide_banner -loglevel {str(verbosity)} -y -i '{video_file}' -acodec {acodec} -vcodec {vcodec} -scodec {scodec} -ss {start} -to {stop} -reset_timestamps 1 '{split_file}'"
         logging.debug(f"Running command: {cmd}")
-        subprocess.check_call(['ffmpeg','-hide_banner','-loglevel',str(verbosity),'-y','-i',video_file,'-acodec',acodec,'-vcodec',vcodec,'-ss',start,'-to',stop,'-reset_timestamps','1',split_file])
+        subprocess.check_call(['ffmpeg','-hide_banner','-loglevel',str(verbosity),'-y','-i',video_file,'-acodec',acodec,'-vcodec',vcodec,'-scodec',scodec,'-ss',start,'-to',stop,'-reset_timestamps','1',split_file])
         split_list.append(split_file)
         split_cnt+=1
     return split_list
     # HALP, ffmpeg-python doesn't let you seek like:
-    # ffmpeg -ss 00:01:00 -i input.mp4 -to 00:02:00 -c copy output.mp4
+    # ffmpeg -ss 00:01:00 -i input.mp4 -to 00:02:00 -c copy -scodec copy output.mp4
     # https://stackoverflow.com/a/42827058
     #
     # video = ffmpeg.input('CreuxDeVan.mpg')
     # trimmed = ffmpeg.trim(video, start=0, duration=1)
-    # out = ffmpeg.output(trimmed, 'test.mpg', vcodec='copy', acodec='copy')
+    # out = ffmpeg.output(trimmed, 'test.mpg', vcodec='copy', acodec='copy', scodec='copy')
     # out.run()
 
 
@@ -156,7 +158,7 @@ def join_video(split_list, out_file, verbosity=0):
     # "ffmpeg -f concat -safe 0 -i '{fp.name}' -c copy '{out_file}'"
     logging.debug(f"Created temp file: {fp.name}")
     logging.info(f"Joining {len(split_list)} files to {out_file}")
-    subprocess.check_call(['ffmpeg', '-hide_banner', '-loglevel', str(verbosity), '-f', 'concat', '-safe', '0', '-i', fp.name, '-c', 'copy', out_file])
+    subprocess.check_call(['ffmpeg', '-hide_banner', '-loglevel', str(verbosity), '-f', 'concat', '-safe', '0', '-i', fp.name, '-c', 'copy', '-scodec', 'copy', out_file])
     
     # Delete temp file as we're done with it
     os.remove(fp.name)
@@ -168,7 +170,7 @@ def resolve_out_filename(input_file_name):
     """
     base_name = os.path.splitext(os.path.basename(input_file_name))[0]
     
-    extension = '.mkv'
+    extension = '.mpg'
 
     return f"{base_name}_comskipped{extension}"
 
@@ -186,6 +188,7 @@ def intro_log(args):
     print(f"EDL: {args.edl}")
     print(f"vcodec: {args.vcodec}")
     print(f"acodec: {args.acodec}")
+    print(f"scodec: {args.scodec}")
     print(f"Output: {args.out_file}\n")
 
 
@@ -193,11 +196,6 @@ def main():
     """
     Main Execution
     """
-    # Check if ffmpeg exists in commandline path
-    if which("ffmpeg") is None:
-        logging.critical(f"ffmpeg was not found on the path of this system! Please install it and try again later.")
-        exit() 
-
     # Parse Args
     args = parse_args(sys.argv[1:])
 
