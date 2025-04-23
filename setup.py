@@ -5,13 +5,13 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setuptools.setup(
     name="edlstrip",
-    version="1.0.5",
+    version="1.0.6",
     author="Scott C.",
     author_email="shuaiscott@gmail.com",
     description="Strips commercials off Channels DVR recordings using outputted EDL files",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/shuaiscott/edlstrip",
+    url="https://github.com/tresby/edlstrip",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
